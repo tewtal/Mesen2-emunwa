@@ -3,6 +3,8 @@
 #include "EmuNwa/EmuNwaServer.h"
 #include "Shared/MessageManager.h"
 #include "Shared/Emulator.h"
+#include "Shared/SaveStateManager.h"
+#include "Utilities/FolderUtilities.h"
 #include <sstream>
 #include <cstring>
 #include <map>
@@ -142,22 +144,23 @@ void EmuNwaConnection::HandleMessage(const char* message)
 	std::string messageStr(message);
 	std::istringstream iss(messageStr);
 	std::string command;
-	std::getline(iss, command, ' ');
-
-	// Remove trailing newline characters
-	command.erase(std::remove(command.begin(), command.end(), '\n'), command.end());
-
-	// Convert the command to lowercase for case-insensitive comparison
-	command = toLower(command);
-
 	std::string argumentsStr;
-	std::getline(iss, argumentsStr); // Get the rest of the line
+	std::getline(iss, command, ' ');
+	std::getline(iss, argumentsStr); 
 
 	// Split the arguments
 	std::vector<std::string> arguments = split(argumentsStr, ';');
 
+	// Convert the command to lowercase for case-insensitive comparison
+	command = toLower(command);
+
 	// Handle commands
 	if(command == "my_name_is") {
+		if(arguments.size() == 0)
+		{
+			SendError("invalid_argument", "MY_NAME_IS requires a name argument");
+			return;
+		}
 		HandleMyNameIs(arguments[0]);
 	} else if(command == "emulator_info") {
 		HandleEmulatorInfo();
@@ -166,10 +169,14 @@ void EmuNwaConnection::HandleMessage(const char* message)
 	} else if(command == "game_info") {
 		HandleGameInfo();
 	} else if(command == "cores_list") {
-		HandleCoresList();
+		HandleCoresList(arguments.size() > 0 ? arguments[0] : "");
 	} else if(command == "core_memories") {
 		HandleCoreMemories();
 	} else if(command == "core_info") {
+		if(arguments.size() == 0) {
+			SendError("invalid_argument", "CORE_INFO requires a core name argument");
+			return;
+		}
 		HandleCoreInfo(arguments[0]);
 	} else if(command == "core_current_info") {
 		HandleCoreCurrentInfo();
@@ -183,11 +190,23 @@ void EmuNwaConnection::HandleMessage(const char* message)
 		HandleEmulationResume();
 	} else if(command == "emulation_reload") {
 		HandleEmulationReload();
-	} else if(command == "core_read") {
+	} else if(command == "debug_break") {
+		HandleDebugBreak();
+	} else if(command == "debug_resume") {
+		HandleDebugResume();
+	} else if(command == "core_read") {		
+		if(arguments.size() < 1) {
+			SendError("invalid_argument", "CORE_READ requires at least a memory name.");
+			return;
+		}
 		std::string memoryName = arguments[0];
 		arguments.erase(arguments.begin()); // Remove memory name from arguments
 		HandleCoreRead(memoryName, arguments);
-	} else if(command == "bcore_write" && arguments.size() > 0) {
+	} else if(command == "bcore_write") {
+		if(arguments.size() < 1) {
+			SendError("invalid_argument", "bCORE_WRITE requires at least a memory name.");
+			return;
+		}
 		_binaryMessageType = BinaryMessageType::CORE_WRITE;
 		_binaryMessageArguments = arguments;
 	} else {
@@ -198,9 +217,16 @@ void EmuNwaConnection::HandleMessage(const char* message)
 void EmuNwaConnection::HandleBinaryMessage(const std::vector<uint8_t>& messageData)
 {
 	if(_binaryMessageType == BinaryMessageType::CORE_WRITE) {
-		HandleCoreWrite(_binaryMessageArguments, messageData);
+		if(_binaryMessageArguments.size() < 1) {
+			SendError("protocol_error", "bCORE_WRITE requires at least a memory name.");
+			return;
+		}
+		std::vector<std::string> arguments(_binaryMessageArguments.begin() + 1, _binaryMessageArguments.end());
+		HandleCoreWrite(_binaryMessageArguments[0], arguments, messageData);
+		_binaryMessageType = BinaryMessageType::INVALID;
 	} else {
-		  SendError("invalid_command", "Unknown binary command");
+		  SendError("protocol_error", "Unknown binary command");
+		  Disconnect();
 	}
 
 	SendResponse("\n\n");
@@ -297,7 +323,53 @@ void EmuNwaConnection::HandleGameInfo()
 	);
 }
 
-void EmuNwaConnection::HandleCoresList()
+void EmuNwaConnection::HandleDebugBreak()
+{
+	_emu->BreakIfDebugging(CpuType::Snes, BreakSource::Breakpoint);
+	SendResponse("\n\n");
+}
+
+void EmuNwaConnection::HandleDebugResume()
+{
+	_emu->Resume();
+	SendResponse("\n\n");
+}
+
+/*
+ * These save state functions are implemented here for now, but is not
+ * exposed to the clients since the protocol right now requires arbitrary
+ * file paths which is highly insecure. In these implementations I've stripped
+ * the file path and only used the base name to generate the save state file name.
+ * 
+ * This is incompatible with the current protocol though and would break any software
+ * relying on savestate support. So we'll leave this for now until a protocol update.
+ */
+void EmuNwaConnection::HandleSaveState(const std::string& fileName)
+{
+	auto lock = _emu->AcquireLock();
+	SaveStateManager* manager = _emu->GetSaveStateManager();
+	manager->SaveState(GetStateFilepath(fileName), true);
+	SendResponse("\n\n");
+}
+
+void EmuNwaConnection::HandleLoadState(const std::string& fileName)
+{
+	auto lock = _emu->AcquireLock();
+	SaveStateManager* manager = _emu->GetSaveStateManager();
+	manager->LoadState(GetStateFilepath(fileName), true);
+	SendResponse("\n\n");
+}
+
+string EmuNwaConnection::GetStateFilepath(const std::string& filePath)
+{
+	string baseName = FolderUtilities::GetFilename(filePath, false);
+	string romFile = _emu->GetRomInfo().RomFile.GetFileName();
+	string folder = FolderUtilities::GetSaveStateFolder();
+	string filename = FolderUtilities::GetFilename(romFile, false) + "_" + baseName + ".mss";
+	return FolderUtilities::CombinePath(folder, filename);
+}
+
+void EmuNwaConnection::HandleCoresList(const std::string& platform)
 {
 
 	// List of supported cores and their platforms
@@ -313,7 +385,12 @@ void EmuNwaConnection::HandleCoresList()
 
 	// Send the response
 	std::string response = "\n";
-	for(auto& core : cores) {
+	for(auto& core : cores) {		
+		
+		if(!platform.empty() && core.second != platform) {
+			continue;
+		}
+
 		response += "name:" + core.first + "\n";
 		response += "platform:" + core.second + "\n";
 	}
@@ -362,7 +439,7 @@ void EmuNwaConnection::HandleCoreInfo(const std::string& coreName)
 {
 	// Only support SNES for now
 	if(coreName != "SnesCore") {
-		SendError("invalid_core", "Invalid core name");
+		SendError("invalid_argument", "Invalid core name");
 		return;
 	}
 
@@ -380,7 +457,7 @@ void EmuNwaConnection::HandleCoreInfo(const std::string& coreName)
 void EmuNwaConnection::HandleCoreCurrentInfo()
 {
 	if(_emu->GetConsoleType() != ConsoleType::Snes) {
-		SendError("invalid_core", "Unsupported core loaded");
+		SendError("not_allowed", "Unsupported core loaded");
 		return;
 	}
 	else 
@@ -391,11 +468,6 @@ void EmuNwaConnection::HandleCoreCurrentInfo()
 
 void EmuNwaConnection::HandleCoreRead(const std::string& memoryName, const std::vector<std::string>& arguments)
 {
-	// 1. Validate Arguments:
-	if(arguments.empty() || (arguments.size() % 2 != 0)) { // At least one pair, and even number
-		SendError("invalid_argument", "CORE_READ requires at least memory name and offset, and pairs of offset/size.");
-		return;
-	}
 
 	std::map<std::string, MemoryType> memoryTypes = {
 		{"CARTROM", MemoryType::SnesPrgRom},
@@ -420,20 +492,36 @@ void EmuNwaConnection::HandleCoreRead(const std::string& memoryName, const std::
 	}
 	else if(memoryName == "APUBUS") 
 	{
-		memory_size = 0x10000;
+		memory_size = 0x10000;	
 	}
 
+	std::vector<std::string> addressPairs(arguments);
+
+	if(addressPairs.empty()) {
+		addressPairs.push_back("0");
+		addressPairs.push_back("");
+	}
+	else if (addressPairs.size() == 1) {
+		addressPairs.push_back("");
+	}
+	else if(addressPairs.size() % 2 != 0) {
+		SendError("invalid_argument", "Invalid number of arguments.");
+		return;
+	}
+
+	auto lock = _emu->AcquireLock();
+
 	// 2. Process Each Offset/Size Pair:
-	for(size_t i = 0; i < arguments.size(); i += 2) {
-		const std::string& offsetStr = arguments[i];
-		const std::string& sizeStr = arguments[i + 1];
+	for(size_t i = 0; i < addressPairs.size(); i += 2) {
+		const std::string& offsetStr = addressPairs[i];
+		const std::string& sizeStr = addressPairs[i + 1];
 
 		size_t offset = 0;
 		try 
 		{
 			if(offsetStr[0] == '$') 
 			{
-				offset = std::stoul(offsetStr.substr(1), nullptr, 16); // Hexadecimal
+				offset = std::stoul(offsetStr.c_str() + 1, nullptr, 16); // Hexadecimal
 			} else {
 				offset = std::stoul(offsetStr, nullptr, 10); // Decimal
 			}
@@ -451,7 +539,7 @@ void EmuNwaConnection::HandleCoreRead(const std::string& memoryName, const std::
 		} else {
 			try {
 				if(sizeStr[0] == '$') {
-					size = std::stoul(sizeStr.substr(1), nullptr, 16); // Hexadecimal
+					size = std::stoul(sizeStr.c_str() + 1, nullptr, 16); // Hexadecimal
 				} else {
 					size = std::stoul(sizeStr, nullptr, 10); // Decimal
 				}
@@ -465,7 +553,7 @@ void EmuNwaConnection::HandleCoreRead(const std::string& memoryName, const std::
 
 		// 3. Bounds Checking:
 		if(offset >= memory_size || (offset + size) > memory_size) {
-			SendError("not_allowed", "Memory read out of bounds.");
+			SendError("invalid_argument", "Memory read out of bounds.");
 			return;
 		}
 
@@ -479,17 +567,10 @@ void EmuNwaConnection::HandleCoreRead(const std::string& memoryName, const std::
 	SendBinaryMessage(readData);
 }
 
-void EmuNwaConnection::HandleCoreWrite(const std::vector<std::string>& arguments,
-												  const std::vector<uint8_t>& data)
+void EmuNwaConnection::HandleCoreWrite(const std::string& memoryName,
+													const std::vector<std::string>& arguments,
+												   const std::vector<uint8_t>& data)
 {
-	if(arguments.empty() || ((arguments.size() - 1) % 2 != 0)) {
-		SendError("invalid_argument",
-					 "bCORE_WRITE requires at least memory name and offset, and pairs of offset/size.");
-		return;
-	}
-
-	std::string memoryName = arguments[0];
-
 	std::map<std::string, MemoryType> memoryTypes = {
 		 {"CARTROM", MemoryType::SnesPrgRom},
 		 {"SRAM", MemoryType::SnesSaveRam},
@@ -518,17 +599,29 @@ void EmuNwaConnection::HandleCoreWrite(const std::vector<std::string>& arguments
 
 	size_t dataOffset = 0;
 
+	std::vector<std::string> addressPairs(arguments);
+
+	if(addressPairs.empty()) {
+		addressPairs.push_back("0");
+		addressPairs.push_back("");
+	} else if(addressPairs.size() == 1) {
+		addressPairs.push_back("");
+	} else if(addressPairs.size() % 2 != 0) {
+		SendError("invalid_argument", "Invalid number of arguments.");
+		return;
+	}
+
 	auto lock = _emu->AcquireLock();	
 
-	for(size_t i = 1; i < arguments.size(); i += 2) {
-		const std::string& offsetStr = arguments[i];
-		const std::string& sizeStr = arguments[i + 1];
+	for(size_t i = 0; i < addressPairs.size(); i += 2) {
+		const std::string& offsetStr = addressPairs[i];
+		const std::string& sizeStr = addressPairs[i + 1];
 
 		size_t offset = 0;
 		try 
 		{
 			if(offsetStr[0] == '$') {
-				offset = std::stoul(offsetStr.substr(1), nullptr, 16); // Hexadecimal
+				offset = std::stoul(offsetStr.c_str() + 1, nullptr, 16); // Hexadecimal
 			} else {
 				offset = std::stoul(offsetStr, nullptr, 10); // Decimal
 			}
@@ -541,12 +634,12 @@ void EmuNwaConnection::HandleCoreWrite(const std::vector<std::string>& arguments
 
 		size_t size = 0;
 		if(sizeStr.empty()) {
-			size = memory_size - offset; // Read to end of memory
+			size = data.size(); // Read all binary data
 		} else {
 			try 
 			{
 				if(sizeStr[0] == '$') {
-					size = std::stoul(sizeStr.substr(1), nullptr, 16); // Hexadecimal
+					size = std::stoul(sizeStr.c_str() + 1, nullptr, 16); // Hexadecimal
 				} else {
 					size = std::stoul(sizeStr, nullptr, 10); // Decimal
 				}
@@ -560,7 +653,7 @@ void EmuNwaConnection::HandleCoreWrite(const std::vector<std::string>& arguments
 
 		// Bounds Checking
 		if(offset >= memory_size || (offset + size) > memory_size) {
-			SendError("not_allowed", "Memory write out of bounds.");
+			SendError("invalid_argument", "Memory write out of bounds.");
 			return;
 		}
 
