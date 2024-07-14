@@ -105,6 +105,8 @@ void Emulator::Release()
 	_gameClient->Disconnect();
 	_gameServer->StopServer();
 
+	_emuNwaServer->StopServer();
+
 	_videoDecoder->StopThread();
 	_videoRenderer->StopThread();
 	_shortcutKeyHandler.reset();
