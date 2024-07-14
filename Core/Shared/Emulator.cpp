@@ -49,6 +49,7 @@
 #include "Utilities/FolderUtilities.h"
 #include "Shared/MemoryOperationType.h"
 #include "Shared/EventType.h"
+#include "EmuNwa/EmuNwaServer.h"
 
 Emulator::Emulator() :
 	_settings(new EmuSettings(this)),
@@ -65,7 +66,8 @@ Emulator::Emulator() :
 	_historyViewer(new HistoryViewer(this)),
 	_gameServer(new GameServer(this)),
 	_gameClient(new GameClient(this)),
-	_rewindManager(new RewindManager(this))
+	_rewindManager(new RewindManager(this)),
+	_emuNwaServer(new EmuNwaServer(this))
 {
 	_paused = false;
 	_pauseOnNextFrame = false;

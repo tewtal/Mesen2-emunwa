@@ -700,6 +700,7 @@ namespace Mesen.ViewModels
 
 				GetMoviesMenu(wnd),
 				GetNetPlayMenu(wnd),
+				GetEmuNwaMenu(wnd),
 
 				new ContextMenuSeparator(),
 
@@ -789,6 +790,30 @@ namespace Mesen.ViewModels
 							RecordApi.WaveStop();
 						}
 					}
+				}
+			};
+		}
+
+		private MainMenuAction GetEmuNwaMenu(MainWindow wnd)
+		{
+			return new MainMenuAction() {
+				ActionType = ActionType.EmuNwa,
+				SubActions = new List<object> {
+					new MainMenuAction() {
+						ActionType = ActionType.EmuNwaStartServer,
+						IsEnabled = () => !EmuNwaApi.IsEmuNwaServerRunning(),
+						OnClick = () => {
+							EmuNwaApi.StartEmuNwaServer();
+						}
+					},
+
+					new MainMenuAction() {
+						ActionType = ActionType.EmuNwaStopServer,
+						IsEnabled = () => EmuNwaApi.IsEmuNwaServerRunning(),
+						OnClick = () => {
+							EmuNwaApi.StopEmuNwaServer();
+						}
+					},
 				}
 			};
 		}
