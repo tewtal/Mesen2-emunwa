@@ -886,5 +886,10 @@ namespace Mesen.Debugger.Utilities
 		ResetProfilerData,
 		[IconFile("Copy")]
 		CopyToClipboard,
+
+		[IconFile("Network")]
+		EmuNwa,
+		EmuNwaStartServer,
+		EmuNwaStopServer,
 	}
 }

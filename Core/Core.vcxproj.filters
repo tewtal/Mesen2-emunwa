@@ -2826,6 +2826,12 @@
     <ClInclude Include="GBA\Cart\GbaTiltSensor.h">
       <Filter>GBA\Cart</Filter>
     </ClInclude>
+    <ClInclude Include="EmuNwa\EmuNwaServer.h">
+      <Filter>EmuNwa</Filter>
+    </ClInclude>
+    <ClInclude Include="EmuNwa\EmuNwaConnection.h">
+      <Filter>EmuNwa</Filter>
+    </ClInclude>
     <ClInclude Include="GBA\Cart\GbaRtc.h">
       <Filter>GBA\Cart</Filter>
     </ClInclude>
@@ -3338,6 +3344,12 @@
     <ClCompile Include="SNES\Debugger\St018DisUtils.cpp">
       <Filter>SNES\Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="EmuNwa\EmuNwaServer.cpp">
+      <Filter>EmuNwa</Filter>
+    </ClCompile>
+    <ClCompile Include="EmuNwa\EmuNwaConnection.cpp">
+      <Filter>EmuNwa</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="PCE">
@@ -3465,6 +3477,9 @@
     </Filter>
     <Filter Include="SNES\Coprocessors\SufamiTurbo">
       <UniqueIdentifier>{bfdd4bb9-41c2-4255-a8c3-0176c990cbf3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="EmuNwa">
+      <UniqueIdentifier>{88c40e8d-3f66-497c-8a93-9f0aa63ca688}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

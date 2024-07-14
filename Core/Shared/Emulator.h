@@ -34,6 +34,7 @@ class SystemActionManager;
 class AudioPlayerHud;
 class GameServer;
 class GameClient;
+class EmuNwaServer;
 
 class IInputRecorder;
 class IInputProvider;
@@ -85,6 +86,8 @@ private:
 	const shared_ptr<GameServer> _gameServer;
 	const shared_ptr<GameClient> _gameClient;
 	const shared_ptr<RewindManager> _rewindManager;
+
+	const shared_ptr<EmuNwaServer> _emuNwaServer;
 
 	thread::id _emulationThreadId;
 
@@ -202,6 +205,7 @@ public:
 	GameServer* GetGameServer() { return _gameServer.get(); }
 	GameClient* GetGameClient() { return _gameClient.get(); }
 	shared_ptr<SystemActionManager> GetSystemActionManager() { return _systemActionManager; }
+	EmuNwaServer* GetEmuNwaServer() { return _emuNwaServer.get(); }
 
 	BaseVideoFilter* GetVideoFilter(bool getDefaultFilter = false);
 	void GetScreenRotationOverride(uint32_t& rotation);
