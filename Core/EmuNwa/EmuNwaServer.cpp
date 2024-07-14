@@ -14,6 +14,7 @@ EmuNwaServer::EmuNwaServer(Emulator* emu)
 
 EmuNwaServer::~EmuNwaServer()
 {
+		StopServer();
 }
 
 void EmuNwaServer::AcceptConnections()
