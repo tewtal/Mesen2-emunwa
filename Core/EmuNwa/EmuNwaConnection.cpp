@@ -48,12 +48,12 @@ EmuNwaConnection::EmuNwaConnection(EmuNwaServer* server, Emulator *emu, unique_p
 	_emu = emu;
 	_socket = std::move(socket);
 	_connectionId = server->GetNextConnectionId();
-	MessageManager::DisplayMessage("EmuNwa", "Client connected.");
+	MessageManager::DisplayMessage("EmuNwa", "Client connected");
 }
 
 EmuNwaConnection::~EmuNwaConnection()
 {
-	MessageManager::DisplayMessage("EmuNwa", "Client disconnected.");
+	MessageManager::DisplayMessage("EmuNwa", "Client disconnected");
 	Disconnect();
 }
 
@@ -208,10 +208,8 @@ void EmuNwaConnection::HandleBinaryMessage(const std::vector<uint8_t>& messageDa
 
 void EmuNwaConnection::HandleMyNameIs(const std::string& clientName)
 {
-	// ... (Implementation to set client name and optionally display it)
-	// Example:
 	_clientName = clientName;
-	MessageManager::DisplayMessage("EmuNwa", "Client connected: " + _clientName);
+	MessageManager::DisplayMessage("EmuNwa", "Client set the name to: " + _clientName);
 
 	// Send success response
 	SendResponse("\nname:" + _clientName + "\n\n");
@@ -219,8 +217,6 @@ void EmuNwaConnection::HandleMyNameIs(const std::string& clientName)
 
 void EmuNwaConnection::HandleEmulatorInfo()
 {
-	// ... (Implementation to gather emulator information)
-	// Example:
 	std::string name = "Mesen";
 	std::string version = "2.0";
 	std::string nwaVersion = "1.0";
