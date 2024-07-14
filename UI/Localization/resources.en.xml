@@ -1622,6 +1622,11 @@ E
 		<Message ID="PlayerNumber">Player {0}</Message>
 		<Message ID="ExpansionDevice">Expansion Device</Message>
 
+		<Message ID="EmuNwa">EmuNwa</Message>
+		<Message ID="EmuNwaStartServer">Start EmuNwa Server</Message>
+		<Message ID="EmuNwaStopServer">Stop EmuNwa Server</Message>
+
+
 		<Message ID="PressToExitFullscreen">Press {0} to exit fullscreen</Message>
 		<Message ID="DefaultResolution">Default</Message>
 
@@ -3261,6 +3266,10 @@ E
 			<Value ID="InstallHdPack">Install HD Pack</Value>
 			<Value ID="HdPackBuilder">HD Pack Builder</Value>
 			<Value ID="TakeScreenshot">Take Screenshot</Value>
+
+			<Value ID="EmuNwa">EmuNwa</Value>
+			<Value ID="EmuNwaStartServer">Start EmuNwa server</Value>
+			<Value ID="EmuNwaStopServer">Stop EmuNwa server</Value>
 
 			<Value ID="OnlineHelp">Online Help</Value>
 			<Value ID="CommandLineHelp">Command-line options</Value>
